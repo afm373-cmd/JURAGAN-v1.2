@@ -1,940 +1,568 @@
-import React, { useState, useRef } from 'react';
-import { 
-  Plus, 
-  Trash2, 
-  TrendingUp, 
-  Download, 
-  FileSpreadsheet, 
-  Check, 
-  AlertCircle,
-  Copy,
-  X,
-  Minus,
-  Sparkles,
-  Users,
-  Award,
-  ArrowUpRight,
-  ArrowDownRight
-} from 'lucide-react';
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JURAGAN - Buku Kas Digital Sederhana & Praktis</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    </style>
+</head>
+<body class="bg-[#f7faf6] text-[#2d3a29] antialiased pb-12">
 
-// Mulai dari kosong total agar user awam memulai dari buku kas yang bersih sesuai dagangan riil mereka
-const DEFAULT_TRANSACTIONS = [];
+    <div id="root"></div>
 
-// Mulai dari kosong agar user mendaftarkan template barang/jasa andalan mereka
-const DEFAULT_USER_TEMPLATES = [];
+    <script type="text/babel">
+        // Inisialisasi awal kosong bersih sesuai logika Canvas kamu
+        const DEFAULT_TRANSACTIONS = [];
+        const DEFAULT_USER_TEMPLATES = [];
 
-export default function App() {
-  const [transactions, setTransactions] = useState(DEFAULT_TRANSACTIONS);
-  const [userTemplates, setUserTemplates] = useState(DEFAULT_USER_TEMPLATES);
-  const [feedback, setFeedback] = useState(null);
-  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-  const [generatedCsvText, setGeneratedCsvText] = useState('');
-  const textareaRef = useRef(null);
+        function App() {
+            const [transactions, setTransactions] = React.useState(DEFAULT_TRANSACTIONS);
+            const [userTemplates, setUserTemplates] = React.useState(DEFAULT_USER_TEMPLATES);
+            const [feedback, setFeedback] = React.useState(null);
+            const [isExportModalOpen, setIsExportModalOpen] = React.useState(false);
+            const [generatedCsvText, setGeneratedCsvText] = React.useState('');
+            const textareaRef = React.useRef(null);
 
-  // Form Input States
-  const [txType, setTxType] = useState('pemasukan'); // 'pemasukan' atau 'pengeluaran'
-  const [date, setDate] = useState('2026-05-17'); 
-  const [itemName, setItemName] = useState('');
-  const [customerName, setCustomerName] = useState(''); 
-  const [qty, setQty] = useState(1); 
-  const [unitType, setUnitType] = useState('pcs'); 
-  const [cost, setCost] = useState('');
-  const [price, setPrice] = useState('');
-  const [expenseTotal, setExpenseTotal] = useState(''); // khusus input nominal pengeluaran
+            // Form Input States
+            const [txType, setTxType] = React.useState('pemasukan'); 
+            const [date, setDate] = React.useState(new Date().toISOString().substring(0, 10)); 
+            const [itemName, setItemName] = React.useState('');
+            const [customerName, setCustomerName] = React.useState(''); 
+            const [qty, setQty] = React.useState(1); 
+            const [unitType, setUnitType] = React.useState('pcs'); 
+            const [cost, setCost] = React.useState('');
+            const [price, setPrice] = React.useState('');
+            const [expenseTotal, setExpenseTotal] = React.useState(''); 
 
-  // States untuk menambahkan template barang laku baru
-  const [showAddTemplateForm, setShowAddTemplateForm] = useState(false);
-  const [tempName, setTempName] = useState('');
-  const [tempUnit, setTempUnit] = useState('pcs');
-  const [tempCost, setTempCost] = useState('');
-  const [tempPrice, setTempPrice] = useState('');
+            // States untuk template barang
+            const [showAddTemplateForm, setShowAddTemplateForm] = React.useState(false);
+            const [tempName, setTempName] = React.useState('');
+            const [tempUnit, setTempUnit] = React.useState('pcs');
+            const [tempCost, setTempCost] = React.useState('');
+            const [tempPrice, setTempPrice] = React.useState('');
 
-  // Notifikasi pop-up sederhana
-  const showFeedback = (msg, type = 'success') => {
-    setFeedback({ msg, type });
-    setTimeout(() => setFeedback(null), 3000);
-  };
+            const showFeedback = (msg, type = 'success') => {
+                setFeedback({ msg, type });
+                setTimeout(() => setFeedback(null), 3000);
+            };
 
-  // Tambah Transaksi Baru (Pemasukan atau Pengeluaran)
-  const handleAddTransaction = (e) => {
-    if (e) e.preventDefault();
+            const handleAddTransaction = (e) => {
+                if (e) e.preventDefault();
 
-    if (txType === 'pemasukan') {
-      if (!itemName || !qty || !cost || !price || !date) {
-        showFeedback('Harap isi semua kolom transaksi pemasukan!', 'error');
-        return;
-      }
+                if (txType === 'pemasukan') {
+                    if (!itemName || !qty || !cost || !price || !date) {
+                        showFeedback('Harap isi semua kolom transaksi pemasukan!', 'error');
+                        return;
+                    }
+                    const parsedQty = parseInt(qty);
+                    const parsedCost = parseInt(cost);
+                    const parsedPrice = parseInt(price);
 
-      const parsedQty = parseInt(qty);
-      const parsedCost = parseInt(cost);
-      const parsedPrice = parseInt(price);
+                    if (parsedQty <= 0) {
+                        showFeedback('Jumlah Qty minimal adalah 1!', 'error');
+                        return;
+                    }
 
-      if (parsedQty <= 0) {
-        showFeedback('Jumlah Qty minimal adalah 1!', 'error');
-        return;
-      }
+                    const total = parsedQty * parsedPrice;
+                    const margin = parsedQty * (parsedPrice - parsedCost);
 
-      const total = parsedQty * parsedPrice;
-      const margin = parsedQty * (parsedPrice - parsedCost);
+                    const newTx = {
+                        id: 'tx_' + Date.now(),
+                        type: 'pemasukan',
+                        date,
+                        name: itemName,
+                        customer: customerName.trim() || 'Umum',
+                        qty: parsedQty,
+                        unit: unitType,
+                        cost: parsedCost,
+                        price: parsedPrice,
+                        total,
+                        margin
+                    };
 
-      const newTx = {
-        id: 'tx_' + Date.now(),
-        type: 'pemasukan',
-        date,
-        name: itemName,
-        customer: customerName.trim() || 'Umum',
-        qty: parsedQty,
-        unit: unitType,
-        cost: parsedCost,
-        price: parsedPrice,
-        total,
-        margin
-      };
+                    setTransactions([newTx, ...transactions]);
+                    setItemName('');
+                    setQty(1);
+                    setCost('');
+                    setPrice('');
+                    setCustomerName('');
+                    showFeedback('Berhasil mencatat pemasukan kas!', 'success');
 
-      setTransactions([newTx, ...transactions]);
-      
-      // Reset form pemasukan
-      setItemName('');
-      setQty(1);
-      setCost('');
-      setPrice('');
-      showFeedback('Berhasil mencatat pemasukan kas!', 'success');
+                } else {
+                    if (!itemName || !qty || !expenseTotal || !date) {
+                        showFeedback('Harap isi lengkap deskripsi pengeluaran dan total biayanya!', 'error');
+                        return;
+                    }
+                    const parsedQty = parseInt(qty);
+                    const parsedExpenseTotal = parseInt(expenseTotal);
 
-    } else {
-      // Input Pengeluaran
-      if (!itemName || !qty || !expenseTotal || !date) {
-        showFeedback('Harap isi lengkap deskripsi pengeluaran dan total biayanya!', 'error');
-        return;
-      }
+                    if (parsedQty <= 0) {
+                        showFeedback('Jumlah Qty minimal adalah 1!', 'error');
+                        return;
+                    }
 
-      const parsedQty = parseInt(qty);
-      const parsedExpenseTotal = parseInt(expenseTotal);
+                    const newTx = {
+                        id: 'tx_' + Date.now(),
+                        type: 'pengeluaran',
+                        date,
+                        name: itemName,
+                        customer: '-',
+                        qty: parsedQty,
+                        unit: unitType,
+                        cost: 0,
+                        price: 0,
+                        total: parsedExpenseTotal,
+                        margin: -parsedExpenseTotal 
+                    };
 
-      if (parsedQty <= 0) {
-        showFeedback('Jumlah Qty minimal adalah 1!', 'error');
-        return;
-      }
+                    setTransactions([newTx, ...transactions]);
+                    setItemName('');
+                    setQty(1);
+                    setExpenseTotal('');
+                    showFeedback('Berhasil mencatat pengeluaran kas!', 'success');
+                }
+            };
 
-      const newTx = {
-        id: 'tx_' + Date.now(),
-        type: 'pengeluaran',
-        date,
-        name: itemName,
-        customer: '-',
-        qty: parsedQty,
-        unit: unitType,
-        cost: 0,
-        price: 0,
-        total: parsedExpenseTotal,
-        margin: -parsedExpenseTotal // Pengeluaran mengurangi total margin bersih
-      };
+            const handleAddNewTemplate = (e) => {
+                e.preventDefault();
+                if (!tempName || !tempCost || !tempPrice) {
+                    showFeedback('Harap isi lengkap nama, modal, dan harga jual template!', 'error');
+                    return;
+                }
 
-      setTransactions([newTx, ...transactions]);
+                const newTemp = {
+                    name: tempName,
+                    unit: tempUnit,
+                    cost: parseInt(tempCost),
+                    price: parseInt(tempPrice)
+                };
 
-      // Reset form pengeluaran
-      setItemName('');
-      setQty(1);
-      setExpenseTotal('');
-      showFeedback('Berhasil mencatat pengeluaran kas!', 'success');
-    }
-  };
+                setUserTemplates([...userTemplates, newTemp]);
+                setTempName('');
+                setTempCost('');
+                setTempPrice('');
+                setShowAddTemplateForm(false);
+                showFeedback(`Template ${tempName} disimpan ke Rak Pintar!`, 'success');
+            };
 
-  // Tambahkan Template Barang Baru ke Rak Toko milik User
-  const handleAddNewTemplate = (e) => {
-    e.preventDefault();
-    if (!tempName || !tempCost || !tempPrice) {
-      showFeedback('Harap isi lengkap nama, modal, dan harga jual template!', 'error');
-      return;
-    }
+            const handleDeleteTemplate = (indexToDelete, e) => {
+                e.stopPropagation(); 
+                setUserTemplates(userTemplates.filter((_, idx) => idx !== indexToDelete));
+                showFeedback('Template barang berhasil dihapus dari Rak.', 'info');
+            };
 
-    const newTemp = {
-      name: tempName,
-      unit: tempUnit,
-      cost: parseInt(tempCost),
-      price: parseInt(tempPrice)
-    };
+            const handleQuickTap = (item) => {
+                setTxType('pemasukan'); 
+                setItemName(item.name);
+                setUnitType(item.unit || 'pcs');
+                setCost(item.cost);
+                setPrice(item.price);
+                setQty(1);
+                showFeedback(`Data ${item.name} berhasil dimuat!`, 'success');
+            };
 
-    setUserTemplates([...userTemplates, newTemp]);
-    setTempName('');
-    setTempCost('');
-    setTempPrice('');
-    setShowAddTemplateForm(false);
-    showFeedback(`Template ${tempName} disimpan ke Rak Pintar!`, 'success');
-  };
+            const handleUpdateTableQty = (id, change) => {
+                setTransactions(prevTransactions => 
+                    prevTransactions.map(t => {
+                        if (t.id === id) {
+                            const newQty = Math.max(1, t.qty + change); 
+                            let newTotal = t.total;
+                            let newMargin = t.margin;
 
-  // Hapus Template Barang agar Rak tetap bersih
-  const handleDeleteTemplate = (indexToDelete, e) => {
-    e.stopPropagation(); 
-    setUserTemplates(userTemplates.filter((_, idx) => idx !== indexToDelete));
-    showFeedback('Template barang berhasil dihapus dari Rak.', 'info');
-  };
+                            if (t.type === 'pemasukan') {
+                                newTotal = newQty * t.price;
+                                newMargin = newQty * (t.price - t.cost);
+                            } else {
+                                const singleCost = t.total / t.qty;
+                                newTotal = Math.round(newQty * singleCost);
+                                newMargin = -newTotal;
+                            }
 
-  // Fungsi Tap Cepat (Mengisi form instan sekali klik)
-  const handleQuickTap = (item) => {
-    setTxType('pemasukan'); // Auto set form ke mode pemasukan
-    setItemName(item.name);
-    setUnitType(item.unit || 'pcs');
-    setCost(item.cost);
-    setPrice(item.price);
-    setQty(1);
-    showFeedback(`Data ${item.name} berhasil dimuat!`, 'success');
-  };
+                            return { ...t, qty: newQty, total: newTotal, margin: newMargin };
+                        }
+                        return t;
+                    })
+                );
+                showFeedback('Jumlah transaksi berhasil diperbarui!', 'success');
+            };
 
-  // Update Qty Langsung Dari Baris Tabel
-  const handleUpdateTableQty = (id, change) => {
-    setTransactions(prevTransactions => 
-      prevTransactions.map(t => {
-        if (t.id === id) {
-          const newQty = Math.max(1, t.qty + change); 
-          let newTotal = t.total;
-          let newMargin = t.margin;
+            const handleDelete = (id) => {
+                setTransactions(transactions.filter(t => t.id !== id));
+                showFeedback('Transaksi telah dihapus.', 'info');
+            };
 
-          if (t.type === 'pemasukan') {
-            newTotal = newQty * t.price;
-            newMargin = newQty * (t.price - t.cost);
-          } else {
-            // Jika pengeluaran, sesuaikan total pengeluaran proporsional jika qty diubah
-            const singleCost = t.total / t.qty;
-            newTotal = Math.round(newQty * singleCost);
-            newMargin = -newTotal;
-          }
+            const currentYear = date.substring(0, 4); 
+            const currentYearMonth = date.substring(0, 7); 
 
-          return {
-            ...t,
-            qty: newQty,
-            total: newTotal,
-            margin: newMargin
-          };
-        }
-        return t;
-      })
-    );
-    showFeedback('Jumlah transaksi berhasil diperbarui!', 'success');
-  };
+            const getTotalsForFilter = (filterFn) => {
+                const list = transactions.filter(filterFn);
+                const omzet = list.filter(t => t.type === 'pemasukan').reduce((acc, cur) => acc + cur.total, 0);
+                const margin = list.reduce((acc, cur) => acc + cur.margin, 0);
+                return { omzet, margin };
+            };
 
-  // Batalkan / Hapus Transaksi
-  const handleDelete = (id) => {
-    setTransactions(transactions.filter(t => t.id !== id));
-    showFeedback('Transaksi telah dihapus.', 'info');
-  };
+            const dailyData = getTotalsForFilter(t => t.date === date);
+            const monthlyData = getTotalsForFilter(t => t.date.startsWith(currentYearMonth));
+            const yearlyData = getTotalsForFilter(t => t.date.startsWith(currentYear));
 
-  // --- HITUNGAN SINKRON RIIL & DINAMIS (Menyesuaikan Buku Kas) ---
-  const currentYear = date.substring(0, 4); 
-  const currentYearMonth = date.substring(0, 7); 
+            const loyalCustomersList = React.useMemo(() => {
+                const customerMap = {};
+                transactions.forEach(t => {
+                    if (t.type === 'pemasukan' && t.customer && t.customer !== 'Umum') {
+                        if (!customerMap[t.customer]) {
+                            customerMap[t.customer] = { count: 0, spend: 0 };
+                        }
+                        customerMap[t.customer].count += 1;
+                        customerMap[t.customer].spend += t.total;
+                    }
+                });
+                return Object.entries(customerMap)
+                    .map(([name, data]) => ({ name, ...data }))
+                    .sort((a, b) => b.spend - a.spend) 
+                    .slice(0, 3);
+            }, [transactions]);
 
-  // Filter & Kalkulasi Data Transaksi Dinamis
-  const getTotalsForFilter = (filterFn) => {
-    const list = transactions.filter(filterFn);
-    
-    // Omzet dihitung hanya dari pemasukan murni
-    const omzet = list
-      .filter(t => t.type === 'pemasukan')
-      .reduce((acc, cur) => acc + cur.total, 0);
+            const getIndonesianMonthYear = (yearMonthStr) => {
+                if (!yearMonthStr) return '';
+                const [year, month] = yearMonthStr.split('-');
+                const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+                return `${months[parseInt(month) - 1]} ${year}`;
+            };
 
-    // Margin bersih: Total margin pemasukan dikurangi total biaya pengeluaran
-    const margin = list.reduce((acc, cur) => acc + cur.margin, 0);
+            const handleExportProcess = () => {
+                if (transactions.length === 0) return;
+                let csvRows = ["Tanggal,Jenis Transaksi,Nama Pelanggan,Nama Barang/Jasa/Pengeluaran,Qty,Satuan,Total Nilai,Margin Untung Bersih"];
+                const sorted = [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
+                sorted.forEach(t => {
+                    const typeLabel = t.type === 'pemasukan' ? 'PEMASUKAN' : 'PENGELUARAN';
+                    csvRows.push(`${t.date},${typeLabel},"${t.customer.replace(/"/g, '""')}","${t.name.replace(/"/g, '""')}",${t.qty},${t.unit},${t.total},${t.margin}`);
+                });
+                setGeneratedCsvText(csvRows.join("\n"));
+                setIsExportModalOpen(true); 
+            };
 
-    return { omzet, margin };
-  };
+            const copyCsvToClipboard = () => {
+                if (textareaRef.current) {
+                    textareaRef.current.focus();
+                    textareaRef.current.select();
+                }
+                try {
+                    document.execCommand('copy');
+                    showFeedback('Data Kas berhasil disalin! Silakan langsung Tempel/Paste di Excel.', 'success');
+                    setIsExportModalOpen(false);
+                } catch (err) {
+                    showFeedback('Gagal menyalin otomatis. Silakan salin manual teks di kotak.', 'error');
+                }
+            };
 
-  // 1. Rekap Harian
-  const dailyData = getTotalsForFilter(t => t.date === date);
+            React.useEffect(() => {
+                lucide.createIcons();
+            }, [transactions, userTemplates, feedback, isExportModalOpen, showAddTemplateForm, txType]);
 
-  // 2. Rekap Bulanan
-  const monthlyData = getTotalsForFilter(t => t.date.startsWith(currentYearMonth));
-
-  // 3. Rekap Tahunan
-  const yearlyData = getTotalsForFilter(t => t.date.startsWith(currentYear));
-
-  // --- ANALISIS PELANGGAN SETIA (LOYALTY SYSTEM) ---
-  const getLoyalCustomers = () => {
-    const customerMap = {};
-    transactions.forEach(t => {
-      if (t.type === 'pemasukan' && t.customer && t.customer !== 'Umum') {
-        if (!customerMap[t.customer]) {
-          customerMap[t.customer] = { count: 0, spend: 0 };
-        }
-        customerMap[t.customer].count += 1;
-        customerMap[t.customer].spend += t.total;
-      }
-    });
-
-    return Object.entries(customerMap)
-      .map(([name, data]) => ({ name, ...data }))
-      .sort((a, b) => b.spend - a.spend) 
-      .slice(0, 3); 
-  };
-
-  const loyalCustomersList = getLoyalCustomers();
-
-  // Format Nama Bulan Indonesia
-  const getIndonesianMonthYear = (yearMonthStr) => {
-    if (!yearMonthStr) return '';
-    const [year, month] = yearMonthStr.split('-');
-    const months = [
-      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-    ];
-    return `${months[parseInt(month) - 1]} ${year}`;
-  };
-
-  // Menyusun baris CSV berdasarkan data transaksi saat ini
-  const generateCsvData = () => {
-    let csvRows = [];
-    csvRows.push("Tanggal,Jenis Transaksi,Nama Pelanggan,Nama Barang/Jasa/Pengeluaran,Qty,Satuan,Total Nilai,Margin Untung Bersih");
-    
-    const sorted = [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
-    sorted.forEach(t => {
-      const typeLabel = t.type === 'pemasukan' ? 'PEMASUKAN' : 'PENGELUARAN';
-      csvRows.push(`${t.date},${typeLabel},"${t.customer.replace(/"/g, '""')}","${t.name.replace(/"/g, '""')}",${t.qty},${t.unit},${t.total},${t.margin}`);
-    });
-
-    return csvRows.join("\n");
-  };
-
-  // Membuka modal salin data kas
-  const handleExportProcess = () => {
-    if (transactions.length === 0) return;
-    const csvString = generateCsvData();
-    setGeneratedCsvText(csvString);
-    setIsExportModalOpen(true); 
-  };
-
-  // Solusi salin teks andalan yang dijamin berjalan lancar di segala browser/HP
-  const copyCsvToClipboard = () => {
-    if (textareaRef.current) {
-      textareaRef.current.focus();
-      textareaRef.current.select();
-      textareaRef.current.setSelectionRange(0, 99999); 
-    }
-    try {
-      document.execCommand('copy');
-      showFeedback('Data Kas berhasil disalin! Silakan langsung Tempel/Paste di Excel.', 'success');
-      setIsExportModalOpen(false);
-    } catch (err) {
-      showFeedback('Gagal menyalin otomatis. Silakan salin manual teks di kotak.', 'error');
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-[#f7faf6] text-[#2d3a29] font-sans pb-12 antialiased">
-      
-      {/* Notifikasi Pop-up Lembut */}
-      {feedback && (
-        <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-white text-xs font-bold transition-all duration-300 ${
-          feedback.type === 'success' ? 'bg-[#5a8f4c]' : 
-          feedback.type === 'info' ? 'bg-[#4a6b82]' : 'bg-[#c25151]'
-        }`}>
-          <span>{feedback.msg}</span>
-        </div>
-      )}
-
-      {/* Jendela Pop-up Modal Pengaman Salin Kas */}
-      {isExportModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#d6ebd2] animate-fade-in">
-            <div className="flex items-center justify-between border-b border-[#f1f6f0] pb-3 mb-4">
-              <div className="flex items-center gap-2 text-[#416836]">
-                <FileSpreadsheet className="w-5 h-5" />
-                <h3 className="font-extrabold text-sm">Salin Data Kas untuk Excel</h3>
-              </div>
-              <button 
-                onClick={() => setIsExportModalOpen(false)}
-                className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <p className="text-xs text-[#64805d] mb-4 leading-relaxed">
-              Tekan tombol hijau di bawah untuk menyalin data kas, lalu buka aplikasi <strong>Microsoft Excel, Google Sheets, atau Notepad</strong> dan tekan <strong>Tempel (Paste / Ctrl+V)</strong>.
-            </p>
-
-            <textarea
-              ref={textareaRef}
-              readOnly
-              value={generatedCsvText}
-              className="w-full h-44 p-3 bg-[#fbfdfb] border border-[#dbe6da] rounded-xl font-mono text-[11px] text-[#2d3a29] focus:outline-none mb-5 resize-none focus:ring-1 focus:ring-[#5a8f4c]"
-              onClick={(e) => {
-                e.target.select();
-                e.target.setSelectionRange(0, 99999);
-              }}
-            />
-
-            <div className="flex gap-2">
-              <button
-                onClick={() => setIsExportModalOpen(false)}
-                className="flex-1 py-3 text-xs font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition"
-              >
-                Batal
-              </button>
-              
-              <button
-                onClick={copyCsvToClipboard}
-                className="flex-[2] flex items-center justify-center gap-1.5 bg-[#5a8f4c] hover:bg-[#48743c] text-white text-xs font-black py-3 rounded-xl transition border border-[#4d7d3f] shadow-sm"
-              >
-                <Copy className="w-3.5 h-3.5" />
-                <span>Salin Data Kas</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Header Elegan */}
-      <header className="bg-white text-[#2d3a29] shadow-sm border-b border-[#d6ebd2]">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center gap-3">
-          {/* Logo Pola Garis Buku Kas */}
-          <div className="bg-[#eaf4e8] p-2.5 rounded-xl text-[#5a8f4c] flex items-center justify-center w-11 h-11 border border-[#cbe2c7]">
-            <svg className="w-full h-full text-[#5a8f4c]" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M4 5C4 3.89543 4.89543 3 6 3H18C19.1046 3 20 3.89543 20 5V19C20 20.1046 19.1046 21 18 21H6C4.89543 21 4 20.1046 4 19V5Z" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M9 3V21" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2 2"/>
-              <path d="M13 8H17" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-              <path d="M13 12H17" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-              <path d="M13 16H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-          </div>
-          <div>
-            <h1 className="text-2xl font-black tracking-widest text-[#416836]">JURAGAN</h1>
-            <p className="text-[9px] text-[#7fa375] font-bold uppercase tracking-widest">Buku Kas Digital Sederhana & Praktis</p>
-          </div>
-        </div>
-      </header>
-
-      {/* Kontainer Utama */}
-      <main className="max-w-5xl mx-auto px-4 mt-8 flex flex-col gap-6">
-        
-        {/* Panel Form Input - Mendukung Pemasukan & Pengeluaran Kas */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#e3ece2]">
-          
-          {/* SAKELAR INTEGRASI: PEMASUKAN vs PENGELUARAN */}
-          <div className="flex gap-2 p-1 bg-[#f2f8f1] rounded-2xl mb-5 border border-[#d6ebd2] max-w-sm">
-            <button
-              type="button"
-              onClick={() => setTxType('pemasukan')}
-              className={`flex-1 py-2.5 rounded-xl text-xs font-black tracking-wider uppercase transition-all flex items-center justify-center gap-1.5 ${
-                txType === 'pemasukan' 
-                  ? 'bg-[#5a8f4c] text-white shadow-xs' 
-                  : 'text-[#416836] hover:bg-[#e4f0e2]'
-              }`}
-            >
-              <ArrowUpRight className="w-4 h-4" />
-              <span>Arus Pemasukan</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setTxType('pengeluaran')}
-              className={`flex-1 py-2.5 rounded-xl text-xs font-black tracking-wider uppercase transition-all flex items-center justify-center gap-1.5 ${
-                txType === 'pengeluaran' 
-                  ? 'bg-[#c25151] text-white shadow-xs' 
-                  : 'text-rose-800 hover:bg-rose-50'
-              }`}
-            >
-              <ArrowDownRight className="w-4 h-4" />
-              <span>Arus Pengeluaran</span>
-            </button>
-          </div>
-
-          <h2 className="font-extrabold text-sm text-[#416836] mb-4 flex items-center gap-2 border-b border-[#f1f6f0] pb-2">
-            <Plus className="w-4 h-4 text-[#5a8f4c]" />
-            {txType === 'pemasukan' ? 'Catat Barang Laku / Jasa Terjual (Pemasukan)' : 'Catat Pengeluaran Operasional / Belanja Bahan'}
-          </h2>
-          
-          <form onSubmit={handleAddTransaction} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-            <div className="md:col-span-2">
-              <label className="text-[10px] font-bold text-[#64805d] uppercase tracking-wider block mb-1.5">Tanggal</label>
-              <input 
-                type="date" 
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full p-2.5 bg-[#fbfdfb] border border-[#dbe6da] rounded-xl text-xs font-bold text-[#2d3a29] focus:outline-none focus:ring-2 focus:ring-[#5a8f4c]"
-              />
-            </div>
-
-            {/* Kolom Pelanggan: Hanya untuk Pemasukan */}
-            {txType === 'pemasukan' && (
-              <div className="md:col-span-2">
-                <label className="text-[10px] font-bold text-[#64805d] uppercase tracking-wider block mb-1.5">Pelanggan (Opsional)</label>
-                <input 
-                  type="text" 
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="Umum / Nama Pembeli"
-                  className="w-full p-2.5 bg-[#fbfdfb] border border-[#dbe6da] rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#5a8f4c] text-[#2d3a29] placeholder-[#a6bca2]"
-                />
-              </div>
-            )}
-
-            <div className={txType === 'pemasukan' ? "md:col-span-2" : "md:col-span-4"}>
-              <label className="text-[10px] font-bold text-[#64805d] uppercase tracking-wider block mb-1.5">
-                {txType === 'pemasukan' ? 'Nama Barang / Jasa' : 'Nama Pengeluaran / Kebutuhan'}
-              </label>
-              <input 
-                type="text" 
-                value={itemName}
-                onChange={(e) => setItemName(e.target.value)}
-                placeholder={txType === 'pemasukan' ? "Beras / Cuci Lipat" : "Beli Pewangi Laundry, Bayar Air"}
-                className="w-full p-2.5 bg-[#fbfdfb] border border-[#dbe6da] rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#5a8f4c] text-[#2d3a29] placeholder-[#a6bca2]"
-              />
-            </div>
-
-            {/* Qty Input */}
-            <div className="md:col-span-2">
-              <label className="text-[10px] font-bold text-[#64805d] uppercase tracking-wider block mb-1.5">Jumlah</label>
-              <div className="flex items-center h-[38px] bg-[#fbfdfb] border border-[#dbe6da] rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-[#5a8f4c]">
-                <button
-                  type="button"
-                  onClick={() => setQty(prev => Math.max(1, prev - 1))}
-                  className="px-2 h-full bg-[#f2f8f1] hover:bg-[#e4f0e2] text-[#416836] font-bold transition-colors"
-                >
-                  <Minus className="w-3 h-3" />
-                </button>
-                <input 
-                  type="number" 
-                  value={qty}
-                  onChange={(e) => setQty(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-full h-full text-center text-xs font-bold text-[#2d3a29] focus:outline-none bg-transparent"
-                />
-                <button
-                  type="button"
-                  onClick={() => setQty(prev => prev + 1)}
-                  className="px-2 h-full bg-[#f2f8f1] hover:bg-[#e4f0e2] text-[#416836] font-bold transition-colors"
-                >
-                  <Plus className="w-3 h-3" />
-                </button>
-              </div>
-            </div>
-
-            {/* Satuan */}
-            <div className="md:col-span-1">
-              <label className="text-[10px] font-bold text-[#64805d] uppercase tracking-wider block mb-1.5">Satuan</label>
-              <select
-                value={unitType}
-                onChange={(e) => setUnitType(e.target.value)}
-                className="w-full p-2.5 bg-[#fbfdfb] border border-[#dbe6da] rounded-xl text-xs font-bold text-[#2d3a29] focus:outline-none focus:ring-2 focus:ring-[#5a8f4c]"
-              >
-                <option value="pcs">pcs</option>
-                <option value="kg">kg (Laundry)</option>
-                <option value="porsi">porsi</option>
-                <option value="paket">paket</option>
-                <option value="liter">liter</option>
-                <option value="meter">meter</option>
-              </select>
-            </div>
-
-            {/* Pengkondisian Form: Pemasukan (Modal & Jual) vs Pengeluaran (Total Nominal Keluar) */}
-            {txType === 'pemasukan' ? (
-              <>
-                <div className="md:col-span-1">
-                  <label className="text-[10px] font-bold text-[#64805d] uppercase tracking-wider block mb-1.5">Modal (Rp)</label>
-                  <input 
-                    type="number" 
-                    value={cost}
-                    onChange={(e) => setCost(e.target.value)}
-                    placeholder="Modal"
-                    className="w-full p-2.5 bg-[#fbfdfb] border border-[#dbe6da] rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#5a8f4c] text-[#2d3a29] placeholder-[#a6bca2]"
-                  />
-                </div>
-
-                <div className="md:col-span-1">
-                  <label className="text-[10px] font-bold text-[#64805d] uppercase tracking-wider block mb-1.5">Jual (Rp)</label>
-                  <input 
-                    type="number" 
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                    placeholder="Jual"
-                    className="w-full p-2.5 bg-[#fbfdfb] border border-[#dbe6da] rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#5a8f4c] text-[#2d3a29] placeholder-[#a6bca2]"
-                  />
-                </div>
-              </>
-            ) : (
-              <div className="md:col-span-2">
-                <label className="text-[10px] font-bold text-rose-800 uppercase tracking-wider block mb-1.5">Total Biaya Keluar (Rp)</label>
-                <input 
-                  type="number" 
-                  value={expenseTotal}
-                  onChange={(e) => setExpenseTotal(e.target.value)}
-                  placeholder="Total Pengeluaran"
-                  className="w-full p-2.5 bg-rose-50/20 border border-rose-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-rose-500 text-rose-900 placeholder-rose-300"
-                />
-              </div>
-            )}
-
-            <div className="md:col-span-1">
-              <button
-                type="submit"
-                className={`w-full text-white font-extrabold py-3 rounded-xl text-xs tracking-wider uppercase transition shadow-sm flex items-center justify-center border ${
-                  txType === 'pemasukan' 
-                    ? 'bg-[#5a8f4c] hover:bg-[#48743c] border-[#4d7d3f]' 
-                    : 'bg-[#c25151] hover:bg-[#a14040] border-[#9e3d3d]'
-                }`}
-                title="Simpan transaksi ke buku kas"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
-          </form>
-
-          {/* INOVASI UTAMA: "RAK TEMPLATE BARANG SAYA" */}
-          <div className="mt-5 pt-4 border-t border-[#f1f6f0]">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-              <span className="text-[10px] font-black text-[#416836] uppercase tracking-wider flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-[#5a8f4c] animate-pulse" />
-                Rak Template Barang/Jasa Saya (Klik Cepat Isi Form)
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowAddTemplateForm(!showAddTemplateForm)}
-                className="text-[10px] font-bold text-[#5a8f4c] hover:text-[#48743c] bg-[#eaf4e8] px-2.5 py-1 rounded-lg transition"
-              >
-                {showAddTemplateForm ? '✕ Tutup Form' : '+ Daftarkan Template Baru'}
-              </button>
-            </div>
-
-            {/* Form Pendaftaran Template Baru */}
-            {showAddTemplateForm && (
-              <form onSubmit={handleAddNewTemplate} className="mb-4 p-3.5 bg-[#fcfdfc] border border-[#d6ebd2] rounded-xl grid grid-cols-1 sm:grid-cols-5 gap-2 items-end">
-                <div className="col-span-1 sm:col-span-2">
-                  <label className="text-[9px] font-bold text-[#64805d] block mb-1">Nama Barang / Layanan Jasa</label>
-                  <input 
-                    type="text" 
-                    placeholder="e.g. Cuci Setrika, Kebab Premium"
-                    value={tempName}
-                    onChange={(e) => setTempName(e.target.value)}
-                    className="w-full p-2 bg-white border border-[#dbe6da] rounded-lg text-xs font-bold text-[#2d3a29] focus:outline-none"
-                  />
-                </div>
+            return (
                 <div>
-                  <label className="text-[9px] font-bold text-[#64805d] block mb-1">Satuan</label>
-                  <select
-                    value={tempUnit}
-                    onChange={(e) => setTempUnit(e.target.value)}
-                    className="w-full p-2 bg-white border border-[#dbe6da] rounded-lg text-xs font-bold text-[#2d3a29] focus:outline-none"
-                  >
-                    <option value="pcs">pcs</option>
-                    <option value="kg">kg (Laundry)</option>
-                    <option value="porsi">porsi</option>
-                    <option value="paket">paket</option>
-                    <option value="liter">liter</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[9px] font-bold text-[#64805d] block mb-1">Modal (Rp)</label>
-                  <input 
-                    type="number" 
-                    placeholder="5000"
-                    value={tempCost}
-                    onChange={(e) => setTempCost(e.target.value)}
-                    className="w-full p-2 bg-white border border-[#dbe6da] rounded-lg text-xs font-bold text-[#2d3a29] focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-[9px] font-bold text-[#64805d] block mb-1">Jual (Rp)</label>
-                  <input 
-                    type="number" 
-                    placeholder="10000"
-                    value={tempPrice}
-                    onChange={(e) => setTempPrice(e.target.value)}
-                    className="w-full p-2 bg-white border border-[#dbe6da] rounded-lg text-xs font-bold text-[#2d3a29] focus:outline-none"
-                  />
-                </div>
-                <div className="col-span-1 sm:col-span-5 flex justify-end">
-                  <button
-                    type="submit"
-                    className="bg-[#5a8f4c] hover:bg-[#48743c] text-white text-xs font-extrabold py-2 px-6 rounded-lg transition"
-                  >
-                    + Simpan ke Rak
-                  </button>
-                </div>
-              </form>
-            )}
+                    {/* Pop-up Info */}
+                    {feedback && (
+                        <div class={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-white text-xs font-bold transition-all duration-300 ${
+                            feedback.type === 'success' ? 'bg-[#5a8f4c]' : feedback.type === 'info' ? 'bg-[#4a6b82]' : 'bg-[#c25151]'
+                        }`}>
+                            <span>{feedback.msg}</span>
+                        </div>
+                    )}
 
-            {/* Barisan Tombol Template yang Dinamis */}
-            {userTemplates.length === 0 ? (
-              <p className="text-[11px] text-[#7fa375] italic">Belum ada template. Silakan klik "+ Daftarkan Template Baru" untuk mendaftarkan layanan laundry atau barang jualan andalan juragan sendiri!</p>
-            ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {userTemplates.map((item, idx) => (
-                  <div
-                    key={idx}
-                    onClick={() => handleQuickTap(item)}
-                    className="group relative flex items-center gap-1 bg-[#f2f8f1] hover:bg-[#5a8f4c] text-[#416836] hover:text-white font-bold px-3 py-1.5 rounded-xl border border-[#d6ebd2] hover:border-[#5a8f4c] transition-all cursor-pointer select-none text-xs"
-                    title={`Modal: Rp ${item.cost.toLocaleString()} | Jual: Rp ${item.price.toLocaleString()} | Satuan: ${item.unit}`}
-                  >
-                    <span>{item.name} ({item.unit})</span>
-                    <button
-                      type="button"
-                      onClick={(e) => handleDeleteTemplate(idx, e)}
-                      className="ml-1 text-[#7fa375] group-hover:text-white hover:text-rose-600 p-0.5 rounded transition-colors"
-                      title="Hapus template"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+                    {/* Modal Export */}
+                    {isExportModalOpen && (
+                        <div class="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+                            <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#d6ebd2]">
+                                <div class="flex items-center justify-between border-b border-[#f1f6f0] pb-3 mb-4">
+                                    <div class="flex items-center gap-2 text-[#416836] font-bold text-sm">
+                                        <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
+                                        <h3>Salin Data Kas untuk Excel</h3>
+                                    </div>
+                                    <button onClick={() => setIsExportModalOpen(false)} class="text-slate-400 hover:text-slate-600 font-bold">&times;</button>
+                                </div>
+                                <p class="text-xs text-[#64805d] mb-4 leading-relaxed">
+                                    Tekan tombol hijau di bawah untuk menyalin data kas, lalu buka aplikasi <strong>Microsoft Excel atau Google Sheets</strong> dan lakukan <strong>Paste (Ctrl+V)</strong>.
+                                </p>
+                                <textarea ref={textareaRef} readOnly value={generatedCsvText} class="w-full h-44 p-3 bg-[#fbfdfb] border border-[#dbe6da] rounded-xl font-mono text-[11px] text-[#2d3a29] focus:outline-none mb-5 resize-none" onClick={(e) => e.target.select()} />
+                                <div class="flex gap-2">
+                                    <button onClick={() => setIsExportModalOpen(false)} class="flex-1 py-3 text-xs font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition">Batal</button>
+                                    <button onClick={copyCsvToClipboard} class="flex-[2] bg-[#5a8f4c] hover:bg-[#48743c] text-white text-xs font-black py-3 rounded-xl transition shadow-sm flex items-center justify-center gap-1.5">
+                                        <i data-lucide="copy" class="w-3.5 h-3.5"></i> Salin Data Kas
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
-        {/* Tabel Penjualan (Mendukung Pemasukan & Pengeluaran) */}
-        <div className="bg-white rounded-2xl shadow-sm border border-[#e3ece2] overflow-hidden">
-          <div className="px-5 py-4 border-b border-[#e3ece2] bg-[#fbfdfb] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-            <div>
-              <h2 className="font-extrabold text-sm text-[#416836] flex items-center gap-2">
-                <FileSpreadsheet className="w-5 h-5 text-[#5a8f4c]" />
-                Daftar Transaksi Arus Kas Masuk & Keluar
-              </h2>
-              <p className="text-xs text-[#64805d]">Mencatat riwayat laku (pemasukan) dan seluruh biaya operasional belanja (pengeluaran)</p>
-            </div>
-            <span className="text-[10px] font-black uppercase text-[#416836] bg-[#eaf4e8] border border-[#cbe2c7] px-3 py-1 rounded-lg">
-              Total Catatan: {transactions.length}
-            </span>
-          </div>
-
-          <div className="overflow-x-auto">
-            {transactions.length === 0 ? (
-              <div className="p-12 text-center text-[#7fa375]">
-                <AlertCircle className="w-8 h-8 text-[#a6bca2] mx-auto mb-2" />
-                <p className="font-semibold text-sm">Belum ada transaksi di dalam buku kas.</p>
-                <p className="text-xs mt-1">Gunakan formulir pencatatan di atas atau gunakan rak template barang untuk mulai mencatat.</p>
-              </div>
-            ) : (
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-[#f2f8f1] text-[#416836] font-bold uppercase tracking-wider border-b border-[#e3ece2] text-[10px]">
-                    <th className="px-5 py-3">Tanggal</th>
-                    <th className="px-5 py-3 text-center">Arus Kas</th>
-                    <th className="px-5 py-3">Pelanggan</th>
-                    <th className="px-5 py-3">Deskripsi Transaksi</th>
-                    <th className="px-5 py-3 text-center">Jumlah (Qty)</th>
-                    <th className="px-5 py-3 text-right">Harga Satuan</th>
-                    <th className="px-5 py-3 text-right">Nilai Total</th>
-                    <th className="px-5 py-3 text-right text-[#416836] bg-[#eaf4e8]/40">Margin Bersih</th>
-                    <th className="px-5 py-3 text-center">Tindakan</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#f1f6f0]">
-                  {transactions.map(t => {
-                    const isExpense = t.type === 'pengeluaran';
-                    return (
-                      <tr key={t.id} className={`hover:bg-[#fbfdfb] transition-colors ${isExpense ? 'bg-rose-50/10' : ''}`}>
-                        <td className="px-5 py-3.5 font-mono text-[#7fa375] whitespace-nowrap">{t.date}</td>
-                        
-                        {/* Status Label Arus Kas */}
-                        <td className="px-5 py-3.5 text-center">
-                          {isExpense ? (
-                            <span className="text-[9px] font-black tracking-wider uppercase text-rose-700 bg-rose-100 border border-rose-200 px-1.5 py-0.5 rounded-md flex items-center justify-center gap-0.5 w-24 mx-auto">
-                              <ArrowDownRight className="w-3 h-3 text-rose-700" />
-                              <span>KELUAR</span>
-                            </span>
-                          ) : (
-                            <span className="text-[9px] font-black tracking-wider uppercase text-emerald-800 bg-[#eaf4e8] border border-[#cbe2c7] px-1.5 py-0.5 rounded-md flex items-center justify-center gap-0.5 w-24 mx-auto">
-                              <ArrowUpRight className="w-3 h-3 text-[#5a8f4c]" />
-                              <span>MASUK</span>
-                            </span>
-                          )}
-                        </td>
-
-                        <td className="px-5 py-3.5 font-bold text-[#2d3a29]">{t.customer}</td>
-                        <td className="px-5 py-3.5 font-bold text-slate-800">{t.name}</td>
-                        
-                        {/* Interactive Qty Column */}
-                        <td className="px-5 py-3.5 text-center">
-                          <div className="inline-flex items-center bg-[#f2f8f1] p-0.5 rounded-lg border border-[#d6ebd2]">
-                            <button 
-                              type="button"
-                              onClick={() => handleUpdateTableQty(t.id, -1)}
-                              className="w-6 h-6 rounded-md bg-white hover:bg-[#e4f0e2] text-[#416836] font-black flex items-center justify-center transition-colors shadow-2xs text-[14px]"
-                              title="Kurangi jumlah"
-                            >
-                              -
+                    {/* Header */}
+                    <header class="bg-white text-[#2d3a29] shadow-sm border-b border-[#d6ebd2]">
+                        <div class="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
+                            <div class="flex items-center gap-3">
+                                <div class="bg-[#eaf4e8] p-2.5 rounded-xl text-[#5a8f4c] flex items-center justify-center w-11 h-11 border border-[#cbe2c7]">
+                                    <i data-lucide="trending-up" class="w-6 h-6"></i>
+                                </div>
+                                <div>
+                                    <h1 class="text-2xl font-black tracking-widest text-[#416836]">JURAGAN v2.2</h1>
+                                    <p class="text-[9px] text-[#7fa375] font-bold uppercase tracking-widest">Buku Kas Digital Sederhana &amp; Praktis</p>
+                                </div>
+                            </div>
+                            <button onClick={handleExportProcess} class="bg-[#5a8f4c] hover:bg-[#48743c] text-white text-xs font-bold px-3 py-2 rounded-xl transition flex items-center gap-1.5 shadow-sm shadow-emerald-100">
+                                <i data-lucide="download" class="w-4 h-4"></i> Ekspor Kas
                             </button>
-                            <span className="font-extrabold text-[#2d3a29] px-2 min-w-[32px] text-center text-xs">
-                              {t.qty} <span className="text-[9px] font-normal text-[#64805d]">{t.unit}</span>
-                            </span>
-                            <button 
-                              type="button"
-                              onClick={() => handleUpdateTableQty(t.id, 1)}
-                              className="w-6 h-6 rounded-md bg-white hover:bg-[#e4f0e2] text-[#416836] font-black flex items-center justify-center transition-colors shadow-2xs text-[14px]"
-                              title="Tambah jumlah"
-                            >
-                              +
-                            </button>
-                          </div>
-                        </td>
+                        </div>
+                    </header>
 
-                        {/* Harga Satuan */}
-                        <td className="px-5 py-3.5 text-right text-[#7fa375]">
-                          {isExpense ? `Rp ${(Math.round(t.total / t.qty)).toLocaleString()}` : `Rp ${t.price.toLocaleString()}`}
-                        </td>
+                    {/* Dashboard Finansial Mini */}
+                    <div class="max-w-5xl mx-auto px-4 mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="bg-white border border-[#e3ece2] rounded-2xl p-4 flex justify-between items-center shadow-xs">
+                            <div>
+                                <p class="text-[10px] font-bold text-[#64805d] uppercase tracking-wider">Omzet Bulanan ({getIndonesianMonthYear(currentYearMonth)})</p>
+                                <h3 class="text-xl font-black text-slate-800 mt-1">Rp {monthlyData.omzet.toLocaleString()}</h3>
+                            </div>
+                            <div class="bg-emerald-50 p-2.5 rounded-xl text-[#5a8f4c]"><i data-lucide="arrow-up-right"></i></div>
+                        </div>
+                        <div class="bg-white border border-[#e3ece2] rounded-2xl p-4 flex justify-between items-center shadow-xs">
+                            <div>
+                                <p class="text-[10px] font-bold text-[#64805d] uppercase tracking-wider">Laba Bersih Bulanan (Setelah Pengeluaran)</p>
+                                <h3 class={`text-xl font-black mt-1 ${monthlyData.margin >= 0 ? 'text-[#5a8f4c]' : 'text-rose-600'}`}>Rp {monthlyData.margin.toLocaleString()}</h3>
+                            </div>
+                            <div class="bg-teal-50 p-2.5 rounded-xl text-teal-600"><i data-lucide="award"></i></div>
+                        </div>
+                    </div>
 
-                        {/* Total Biaya */}
-                        <td className={`px-5 py-3.5 text-right font-bold ${isExpense ? 'text-rose-700' : 'text-[#2d3a29]'}`}>
-                          {isExpense ? '- ' : ''}Rp {t.total.toLocaleString()}
-                        </td>
+                    {/* Main Content */}
+                    <main class="max-w-5xl mx-auto px-4 mt-6 flex flex-col gap-6">
+                        {/* Panel Form Input */}
+                        <div class="bg-white rounded-2xl p-5 shadow-sm border border-[#e3ece2]">
+                            <div class="flex gap-2 p-1 bg-[#f2f8f1] rounded-2xl mb-5 border border-[#d6ebd2] max-w-sm">
+                                <button type="button" onClick={() => setTxType('pemasukan')} class={`flex-1 py-2.5 rounded-xl text-xs font-black tracking-wider uppercase transition-all flex items-center justify-center gap-1.5 ${txType === 'pemasukan' ? 'bg-[#5a8f4c] text-white shadow-xs' : 'text-[#416836] hover:bg-[#e4f0e2]'}`}>
+                                    <i data-lucide="arrow-up-right" class="w-4 h-4"></i> <span>Arus Pemasukan</span>
+                                </button>
+                                <button type="button" onClick={() => setTxType('pengeluaran')} class={`flex-1 py-2.5 rounded-xl text-xs font-black tracking-wider uppercase transition-all flex items-center justify-center gap-1.5 ${txType === 'pengeluaran' ? 'bg-[#c25151] text-white shadow-xs' : 'text-rose-800 hover:bg-rose-50'}`}>
+                                    <i data-lucide="arrow-down-right" class="w-4 h-4"></i> <span>Arus Pengeluaran</span>
+                                </button>
+                            </div>
 
-                        {/* Margin Keuntungan Bersih */}
-                        <td className={`px-5 py-3.5 text-right font-black ${isExpense ? 'text-rose-800 bg-rose-50/20' : 'text-[#3d6332] bg-[#f2f8f1]/50'}`}>
-                          {isExpense ? '-' : ''}Rp {Math.abs(t.margin).toLocaleString()}
-                        </td>
+                            <h2 class="font-extrabold text-sm text-[#416836] mb-4 flex items-center gap-2 border-b border-[#f1f6f0] pb-2">
+                                <i data-lucide="plus" class="w-4 h-4 text-[#5a8f4c]"></i>
+                                {txType === 'pemasukan' ? 'Catat Barang Laku / Jasa Terjual (Pemasukan)' : 'Catat Pengeluaran Operasional / Belanja Bahan'}
+                            </h2>
+                            
+                            <form onSubmit={handleAddTransaction} class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                                <div class="md:col-span-2">
+                                    <label class="text-[10px] font-bold text-[#64805d] uppercase tracking-wider block mb-1.5">Tanggal</label>
+                                    <input type="date" value={date} onChange={(e) => setDate(e.target.value)} class="w-full p-2.5 bg-[#fbfdfb] border border-[#dbe6da] rounded-xl text-xs font-bold text-[#2d3a29] focus:outline-none" />
+                                </div>
 
-                        <td className="px-5 py-3.5 text-center">
-                          <button
-                            onClick={() => handleDelete(t.id)}
-                            className="text-[#a6bca2] hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition"
-                            title="Hapus baris transaksi"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
+                                {txType === 'pemasukan' && (
+                                    <div class="md:col-span-2">
+                                        <label class="text-[10px] font-bold text-[#64805d] uppercase tracking-wider block mb-1.5">Pelanggan (Opsional)</label>
+                                        <input type="text" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Umum / Nama Pembeli" class="w-full p-2.5 bg-[#fbfdfb] border border-[#dbe6da] rounded-xl text-xs font-bold text-[#2d3a29] placeholder-[#a6bca2] focus:outline-none" />
+                                    </div>
+                                )}
 
-        {/* ANALISIS PELANGGAN SETIA (LOYALTY SYSTEM) */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#e3ece2]">
-          <div className="flex items-center gap-2 mb-4 border-b border-[#f1f6f0] pb-3">
-            <Users className="w-5 h-5 text-[#5a8f4c]" />
-            <div>
-              <h3 className="font-extrabold text-sm text-[#416836]">
-                🏆 Peringkat Pelanggan Setia Toko (Loyalty & Hadiah)
-              </h3>
-              <p className="text-[11px] text-[#7fa375]">Daftar pembeli setia yang berhak mendapatkan diskon promo atau bingkisan akhir tahun</p>
-            </div>
-          </div>
+                                <div class={txType === 'pemasukan' ? "md:col-span-3" : "md:col-span-5"}>
+                                    <label class="text-[10px] font-bold text-[#64805d] uppercase tracking-wider block mb-1.5">
+                                        {txType === 'pemasukan' ? 'Nama Barang / Jasa' : 'Nama Pengeluaran / Kebutuhan'}
+                                    </label>
+                                    <input type="text" value={itemName} onChange={(e) => setItemName(e.target.value)} placeholder={txType === 'pemasukan' ? "e.g. Kebab Premium, Cuci Lipat" : "e.g. Beli Gas, Sabun Laundry"} class="w-full p-2.5 bg-[#fbfdfb] border border-[#dbe6da] rounded-xl text-xs font-bold text-[#2d3a29] placeholder-[#a6bca2] focus:outline-none" />
+                                </div>
 
-          {loyalCustomersList.length === 0 ? (
-            <p className="text-xs text-[#7fa375] italic text-center py-2">Belum ada data pelanggan tercatat. Isi kolom "Pelanggan" saat mencatat kas jualan untuk mengaktifkan fitur ini!</p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {loyalCustomersList.map((customer, index) => (
-                <div key={index} className="bg-[#fbfdfb] border border-[#d6ebd2] rounded-xl p-4 flex items-center gap-3 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 p-2 bg-[#5a8f4c] text-white rounded-bl-xl text-[10px] font-black">
-                    Peringkat {index + 1}
-                  </div>
-                  <div className="bg-[#eaf4e8] p-3 rounded-full text-[#5a8f4c]">
-                    <Award className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="font-extrabold text-sm text-[#2d3a29]">{customer.name}</h4>
-                    <p className="text-xs text-[#64805d]">{customer.count}x Transaksi</p>
-                    <p className="text-xs font-bold text-[#416836] mt-1">Total Belanja: Rp {customer.spend.toLocaleString()}</p>
-                    <span className="text-[9px] bg-[#eaf4e8] text-[#416836] px-1.5 py-0.5 rounded-md font-semibold inline-block mt-2">
-                      💡 Rekomendasi: {customer.spend >= 100000 ? 'Beri Diskon 10% / Kalender Akhir Tahun' : 'Beri Bonus Jajan Gratis'}
-                    </span>
-                  </div>
+                                <div class="md:col-span-2">
+                                    <label class="text-[10px] font-bold text-[#64805d] uppercase tracking-wider block mb-1.5">Jumlah</label>
+                                    <input type="number" min="1" value={qty} onChange={(e) => setQty(Math.max(1, parseInt(e.target.value) || 1))} class="w-full p-2.5 bg-[#fbfdfb] border border-[#dbe6da] rounded-xl text-xs font-bold text-center text-[#2d3a29] focus:outline-none" />
+                                </div>
+
+                                <div class="md:col-span-1">
+                                    <label class="text-[10px] font-bold text-[#64805d] uppercase tracking-wider block mb-1.5">Satuan</label>
+                                    <select value={unitType} onChange={(e) => setUnitType(e.target.value)} class="w-full p-2.5 bg-[#fbfdfb] border border-[#dbe6da] rounded-xl text-xs font-bold text-[#2d3a29] focus:outline-none">
+                                        <option value="pcs">pcs</option>
+                                        <option value="kg">kg</option>
+                                        <option value="porsi">porsi</option>
+                                        <option value="paket">paket</option>
+                                        <option value="liter">liter</option>
+                                    </select>
+                                </div>
+
+                                {txType === 'pemasukan' ? (
+                                    <>
+                                        <div class="md:col-span-1">
+                                            <label class="text-[10px] font-bold text-[#64805d] uppercase tracking-wider block mb-1.5">Modal (Rp)</label>
+                                            <input type="number" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="0" class="w-full p-2.5 bg-[#fbfdfb] border border-[#dbe6da] rounded-xl text-xs font-bold text-[#2d3a29] focus:outline-none" />
+                                        </div>
+                                        <div class="md:col-span-1">
+                                            <label class="text-[10px] font-bold text-[#64805d] uppercase tracking-wider block mb-1.5">Jual (Rp)</label>
+                                            <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" class="w-full p-2.5 bg-[#fbfdfb] border border-[#dbe6da] rounded-xl text-xs font-bold text-[#2d3a29] focus:outline-none" />
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div class="md:col-span-2">
+                                        <label class="text-[10px] font-bold text-rose-800 uppercase tracking-wider block mb-1.5">Total Biaya Keluar (Rp)</label>
+                                        <input type="number" value={expenseTotal} onChange={(e) => setExpenseTotal(e.target.value)} placeholder="Total" class="w-full p-2.5 bg-rose-50/20 border border-rose-200 rounded-xl text-xs font-bold text-rose-900 focus:outline-none" />
+                                    </div>
+                                )}
+
+                                <div class="md:col-span-1">
+                                    <button type="submit" class={`w-full text-white font-extrabold py-3 rounded-xl text-xs transition shadow-sm flex items-center justify-center ${txType === 'pemasukan' ? 'bg-[#5a8f4c] hover:bg-[#48743c]' : 'bg-[#c25151] hover:bg-[#a14040]'}`}>
+                                        <i data-lucide="check" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </form>
+
+                            {/* Rak Template Produk */}
+                            <div class="mt-5 pt-4 border-t border-[#f1f6f0]">
+                                <div class="flex justify-between items-center mb-3">
+                                    <span class="text-[10px] font-black text-[#416836] uppercase tracking-wider flex items-center gap-1.5">
+                                        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-[#5a8f4c]"></i> Rak Template Barang/Jasa (Klik Cepat)
+                                    </span>
+                                    <button type="button" onClick={() => setShowAddTemplateForm(!showAddTemplateForm)} class="text-[10px] font-bold text-[#5a8f4c] bg-[#eaf4e8] px-2.5 py-1 rounded-lg transition">
+                                        {showAddTemplateForm ? '✕ Tutup' : '+ Tambah Rak'}
+                                    </button>
+                                </div>
+
+                                {showAddTemplateForm && (
+                                    <form onSubmit={handleAddNewTemplate} class="mb-4 p-3.5 bg-[#fcfdfc] border border-[#d6ebd2] rounded-xl grid grid-cols-1 sm:grid-cols-5 gap-2 items-end">
+                                        <div class="sm:col-span-2">
+                                            <input type="text" placeholder="Nama barang/jasa..." value={tempName} onChange={(e) => setTempName(e.target.value)} class="w-full p-2 border border-[#dbe6da] rounded-lg text-xs" />
+                                        </div>
+                                        <div>
+                                            <select value={tempUnit} onChange={(e) => setTempUnit(e.target.value)} class="w-full p-2 border border-[#dbe6da] rounded-lg text-xs">
+                                                <option value="pcs">pcs</option>
+                                                <option value="kg">kg</option>
+                                                <option value="porsi">porsi</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <input type="number" placeholder="Modal" value={tempCost} onChange={(e) => setTempCost(e.target.value)} class="w-full p-2 border border-[#dbe6da] rounded-lg text-xs" />
+                                        </div>
+                                        <div>
+                                            <input type="number" placeholder="Harga Jual" value={tempPrice} onChange={(e) => setTempPrice(e.target.value)} class="w-full p-2 border border-[#dbe6da] rounded-lg text-xs" />
+                                        </div>
+                                        <div class="sm:col-span-5 flex justify-end">
+                                            <button type="submit" class="bg-[#5a8f4c] text-white text-xs font-bold py-1.5 px-4 rounded-lg">+ Masukkan Rak</button>
+                                        </div>
+                                    </form>
+                                )}
+
+                                {userTemplates.length === 0 ? (
+                                    <p class="text-[11px] text-[#7fa375] italic">Belum ada template terdaftar di rak.</p>
+                                ) : (
+                                    <div class="flex flex-wrap gap-1.5">
+                                        {userTemplates.map((item, idx) => (
+                                            <div key={idx} onClick={() => handleQuickTap(item)} class="group flex items-center gap-1 bg-[#f2f8f1] hover:bg-[#5a8f4c] text-[#416836] hover:text-white font-bold px-3 py-1.5 rounded-xl border border-[#d6ebd2] transition cursor-pointer text-xs">
+                                                <span>{item.name} ({item.unit})</span>
+                                                <button type="button" onClick={(e) => handleDeleteTemplate(idx, e)} class="ml-1 text-gray-400 group-hover:text-white hover:text-red-300">✕</button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Tabel Riwayat Keuangan Lengkap */}
+                        <div class="bg-white rounded-2xl shadow-sm border border-[#e3ece2] overflow-hidden">
+                            <div class="px-5 py-4 border-b border-[#e3ece2] bg-[#fbfdfb] flex justify-between items-center">
+                                <div>
+                                    <h2 class="font-extrabold text-sm text-[#416836] flex items-center gap-2">
+                                        <i data-lucide="file-spreadsheet" class="w-5 h-5 text-[#5a8f4c]"></i> Daftar Jurnal Kas Masuk &amp; Keluar
+                                    </h2>
+                                </div>
+                                <span class="text-[10px] font-black uppercase text-[#416836] bg-[#eaf4e8] px-3 py-1 rounded-lg">Entri: {transactions.length}</span>
+                            </div>
+
+                            <div class="overflow-x-auto">
+                                {transactions.length === 0 ? (
+                                    <div class="p-12 text-center text-[#7fa375]">
+                                        <p class="font-semibold text-sm">Buku kas masih kosong bersih, Juragan.</p>
+                                        <p class="text-xs mt-1">Masukkan transaksi pemasukan atau pengeluaran di atas.</p>
+                                    </div>
+                                ) : (
+                                    <table class="w-full text-left text-xs border-collapse">
+                                        <thead>
+                                            <tr class="bg-[#f2f8f1] text-[#416836] font-bold uppercase tracking-wider border-b border-[#e3ece2] text-[10px]">
+                                                <th class="px-5 py-3">Tanggal</th>
+                                                <th class="px-5 py-3 text-center">Tipe Arus</th>
+                                                <th class="px-5 py-3">Klien</th>
+                                                <th class="px-5 py-3">Deskripsi Produk/Kebutuhan</th>
+                                                <th class="px-5 py-3 text-center">Qty</th>
+                                                <th class="px-5 py-3 text-right">Total Nilai</th>
+                                                <th class="px-5 py-3 text-right text-[#416836] bg-[#eaf4e8]/40">Margin Bersih</th>
+                                                <th class="px-5 py-3 text-center">Aksi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-[#f1f6f0]">
+                                            {transactions.map(t => {
+                                                const isExpense = t.type === 'pengeluaran';
+                                                return (
+                                                    <tr key={t.id} class={`hover:bg-[#fbfdfb] transition-colors ${isExpense ? 'bg-rose-50/20' : ''}`}>
+                                                        <td class="px-5 py-3.5 font-mono text-[#7fa375]">{t.date}</td>
+                                                        <td class="px-5 py-3.5 text-center">
+                                                            <span class={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${isExpense ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                                                {t.type}
+                                                            </span>
+                                                        </td>
+                                                        <td class="px-5 py-3.5 font-bold text-gray-700">{t.customer}</td>
+                                                        <td class="px-5 py-3.5 font-semibold text-slate-800">{t.name}</td>
+                                                        <td class="px-5 py-3.5 text-center">
+                                                            <div class="flex items-center justify-center gap-1.5">
+                                                                <button onClick={() => handleUpdateTableQty(t.id, -1)} class="w-5 h-5 bg-gray-100 rounded text-gray-600 font-bold hover:bg-gray-200">-</button>
+                                                                <span class="font-mono bg-white px-2 py-0.5 rounded border text-xs font-bold">{t.qty} <span class="text-[10px] text-gray-400 font-sans font-normal">{t.unit}</span></span>
+                                                                <button onClick={() => handleUpdateTableQty(t.id, 1)} class="w-5 h-5 bg-gray-100 rounded text-gray-600 font-bold hover:bg-gray-200">+</button>
+                                                            </div>
+                                                        </td>
+                                                        <td class="px-5 py-3.5 text-right font-bold font-mono">Rp {t.total.toLocaleString()}</td>
+                                                        <td class={`px-5 py-3.5 text-right font-bold font-mono bg-[#eaf4e8]/10 ${isExpense ? 'text-rose-600' : 'text-emerald-700'}`}>
+                                                            Rp {t.margin.toLocaleString()}
+                                                        </td>
+                                                        <td class="px-5 py-3.5 text-center">
+                                                            <button onClick={() => handleDelete(t.id)} class="text-slate-300 hover:text-red-600 transition">
+                                                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Top 3 Klien Terloyal */}
+                        {loyalCustomersList.length > 0 && (
+                            <div class="bg-white rounded-2xl shadow-sm p-4 border border-[#e3ece2]">
+                                <h3 class="text-[10px] font-bold text-[#64805d] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                                    <i data-lucide="award" class="text-yellow-500 w-4 h-4"></i> Papan Skor Pembeli Terloyal (Loyalty Radar)
+                                </h3>
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    {loyalCustomersList.map((c, i) => (
+                                        <div key={i} class="bg-[#fbfdfb] p-3 rounded-xl border border-[#e3ece2] flex flex-col justify-between">
+                                            <span class="text-xs font-bold text-slate-700 block truncate">🏆 {c.name}</span>
+                                            <div class="mt-2">
+                                                <span class="text-[10px] text-gray-400 block">Frekuensi: {c.count} Kali Transaksi</span>
+                                                <span class="text-xs font-black text-[#5a8f4c] font-mono block">Kontribusi: Rp {c.spend.toLocaleString()}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </main>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+            );
+        }
 
-        {/* REKAP FINANSIAL - Omzet murni dari pemasukan, Margin bersumber dari pemasukan dikurangi pengeluaran */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#e3ece2]">
-          <div className="flex items-center gap-2 mb-4 border-b border-[#f1f6f0] pb-3">
-            <TrendingUp className="w-5 h-5 text-[#5a8f4c]" />
-            <div>
-              <h3 className="font-extrabold text-sm text-[#416836]">
-                Laporan & Ringkasan Laba Rugi Real-Time
-              </h3>
-              <p className="text-[11px] text-[#7fa375]">Laporan dihitung akurat dari semua transaksi masuk (omzet) dan dikurangkan kas keluar (pengeluaran)</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            
-            {/* Laporan Harian */}
-            <div className="bg-[#fbfdfb] p-4 rounded-2xl border border-[#e3ece2]">
-              <span className="text-[9px] font-black text-[#7fa375] uppercase tracking-widest block mb-2">
-                📅 Rekap Hari Ini ({date})
-              </span>
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs text-[#64805d]">
-                  <span>Omzet Penjualan:</span>
-                  <span className="font-bold text-[#2d3a29]">Rp {dailyData.omzet.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-xs border-t border-[#f1f6f0] pt-2">
-                  <span className="text-[#416836] font-bold">Margin Untung Bersih:</span>
-                  <span className={`font-black ${dailyData.margin < 0 ? 'text-[#c25151]' : 'text-[#416836]'}`}>
-                    {dailyData.margin < 0 ? '-' : ''}Rp {Math.abs(dailyData.margin).toLocaleString()}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Laporan Bulanan */}
-            <div className="bg-[#fbfdfb] p-4 rounded-2xl border border-[#e3ece2]">
-              <span className="text-[9px] font-black text-[#7fa375] uppercase tracking-widest block mb-2">
-                📅 Rekap Bulan Ini ({getIndonesianMonthYear(currentYearMonth)})
-              </span>
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs text-[#64805d]">
-                  <span>Omzet Penjualan:</span>
-                  <span className="font-bold text-[#2d3a29]">Rp {monthlyData.omzet.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-xs border-t border-[#f1f6f0] pt-2">
-                  <span className="text-[#416836] font-bold">Margin Untung Bersih:</span>
-                  <span className={`font-black ${monthlyData.margin < 0 ? 'text-[#c25151]' : 'text-[#416836]'}`}>
-                    {monthlyData.margin < 0 ? '-' : ''}Rp {Math.abs(monthlyData.margin).toLocaleString()}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Laporan Tahunan */}
-            <div className="bg-[#fbfdfb] p-4 rounded-2xl border border-[#e3ece2]">
-              <span className="text-[9px] font-black text-[#7fa375] uppercase tracking-widest block mb-2">
-                📅 Rekap Tahun Ini ({currentYear})
-              </span>
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs text-[#64805d]">
-                  <span>Omzet Penjualan:</span>
-                  <span className="font-bold text-[#2d3a29]">Rp {yearlyData.omzet.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-xs border-t border-[#f1f6f0] pt-2">
-                  <span className="text-[#416836] font-bold">Margin Untung Bersih:</span>
-                  <span className={`font-black ${yearlyData.margin < 0 ? 'text-[#c25151]' : 'text-[#416836]'}`}>
-                    {yearlyData.margin < 0 ? '-' : ''}Rp {Math.abs(yearlyData.margin).toLocaleString()}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-          <div className="mt-4 bg-[#eaf4e8]/40 p-3 rounded-xl border border-[#e3ece2] text-xs text-[#416836] flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#5a8f4c] animate-pulse shrink-0"></span>
-            <span>
-              <strong>Keterangan Arus Kas:</strong> Total margin bersih dihitung dari `Total Keuntungan Penjualan` dikurangi dengan `Seluruh Pengeluaran Operasional` yang terekam dalam sistem.
-            </span>
-          </div>
-
-          {/* TOMBOL UNDUH / SALIN - Hanya Muncul Saat Terdapat Data Transaksi */}
-          {transactions.length > 0 && (
-            <div className="mt-6 pt-4 border-t border-[#f1f6f0] flex justify-end">
-              <button 
-                onClick={handleExportProcess}
-                className="flex items-center justify-center gap-2 bg-[#5a8f4c] hover:bg-[#48743c] text-white text-xs font-black px-6 py-3.5 rounded-xl transition shadow-sm w-full sm:w-auto border border-[#4d7d3f]"
-              >
-                <Download className="w-4 h-4" />
-                <span>Unduh/Salin Seluruh Buku Kas</span>
-              </button>
-            </div>
-          )}
-        </div>
-
-      </main>
-
-      {/* Footer */}
-      <footer className="max-w-5xl mx-auto px-4 mt-12 pt-6 border-t border-[#e3ece2] text-center text-[10px] text-[#7fa375] font-bold uppercase tracking-widest">
-        <p>© 2026 JURAGAN - Pendamping Setia Toko & UMKM Modern Indonesia.</p>
-      </footer>
-    </div>
-  );
-}
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
