@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JURAGAN - Buku Kas Digital Sederhana & Praktis</title>
+    <title>JURAGAN - Buku Kas Digital</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -21,33 +21,703 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        // 1. Inisialisasi State Awal
+        // Inisialisasi awal kosong bersih sesuai logika Canvas kamu
         const DEFAULT_TRANSACTIONS = [];
         const DEFAULT_USER_TEMPLATES = [];
 
-        // 2. Komponen Utama Aplikasi
         function App() {
             const [transactions, setTransactions] = React.useState(DEFAULT_TRANSACTIONS);
             const [userTemplates, setUserTemplates] = React.useState(DEFAULT_USER_TEMPLATES);
+            const [feedback, setFeedback] = React.useState(null);
+            const [isExportModalOpen, setIsExportModalOpen] = React.useState(false);
+            const [generatedCsvText, setGeneratedCsvText] = React.useState("");
+            const textareaRef = React.useRef(null);
 
-            /* TEMPELKAN SEMUA SISA KODE LOGIKA JURAGAN KAMU DI SINI 
-               (Mulai dari fungsi handleAddTransaction, fungsi kalkulasi, 
-               hingga blok 'return (...)' yang berisi kode JSX/HTML-nya)
-            */
+            // Form Input States
+            const [txType, setTxType] = React.useState('pemasukan'); // 'pemasukan' atau 'pengeluaran'
+            const [date, setDate] = React.useState('2026-05-17');
+            const [itemName, setItemName] = React.useState('');
+            const [customerName, setCustomerName] = React.useState('');
+            const [qty, setQty] = React.useState(1);
+            const [unitType, setUnitType] = React.useState('pcs');
+            const [cost, setCost] = React.useState('');
+            const [price, setPrice] = React.useState('');
+            const [expenseTotal, setExpenseTotal] = React.useState('');
 
-            // Contoh penutup return komponen (pastikan disesuaikan dengan kode asli kamu)
+            // States untuk menambahkan template barang laku baru
+            const [showAddTemplateForm, setShowAddTemplateForm] = React.useState(false);
+            const [tempName, setTempName] = React.useState('');
+            const [tempUnit, setTempUnit] = React.useState('pcs');
+            const [tempCost, setTempCost] = React.useState('');
+            const [tempPrice, setTempPrice] = React.useState('');
+
+            // Notifikasi pop-up sederhana
+            const showFeedback = (msg, type = 'success') => {
+                setFeedback({ msg, type });
+                setTimeout(() => setFeedback(null), 3000);
+            };
+
+            // Tambah Transaksi Baru (Pemasukan atau Pengeluaran)
+            const handleAddTransaction = (e) => {
+                e.preventDefault();
+                if (txType === 'pemasukan') {
+                    if (!itemName || !qty || !cost || !price || !date) {
+                        showFeedback('Harap isi semua kolom transaksi pemasukan!', 'error');
+                        return;
+                    }
+                    const parsedQty = parseInt(qty);
+                    const parsedCost = parseInt(cost);
+                    const parsedPrice = parseInt(price);
+
+                    if (parsedQty <= 0) {
+                        showFeedback('Jumlah Qty minimal 1!', 'error');
+                        return;
+                    }
+
+                    const total = parsedQty * parsedPrice;
+                    const margin = parsedQty * (parsedPrice - parsedCost);
+
+                    const newTx = {
+                        id: 'tx_' + Date.now(),
+                        type: 'pemasukan',
+                        date,
+                        name: itemName,
+                        customer: customerName.trim() || 'Umum',
+                        qty: parsedQty,
+                        unit: unitType,
+                        cost: parsedCost,
+                        price: parsedPrice,
+                        total,
+                        margin
+                    };
+
+                    setTransactions([newTx, ...transactions]);
+                    
+                    // Reset form pemasukan
+                    setItemName('');
+                    setQty(1);
+                    setCost('');
+                    setPrice('');
+                    showFeedback('Berhasil mencatat pemasukan kas!', 'success');
+                } else {
+                    // Input Pengeluaran
+                    if (!itemName || !qty || !expenseTotal || !date) {
+                        showFeedback('Harap isi lengkap deskripsi pengeluaran dan total biayanya!', 'error');
+                        return;
+                    }
+                    const parsedQty = parseInt(qty);
+                    const parsedExpenseTotal = parseInt(expenseTotal);
+
+                    if (parsedQty <= 0) {
+                        showFeedback('Jumlah Qty minimal 1!', 'error');
+                        return;
+                    }
+
+                    const newTx = {
+                        id: 'tx_' + Date.now(),
+                        type: 'pengeluaran',
+                        date,
+                        name: itemName,
+                        customer: '-',
+                        qty: parsedQty,
+                        unit: unitType,
+                        cost: 0,
+                        price: 0,
+                        total: parsedExpenseTotal,
+                        margin: -parsedExpenseTotal // Pengeluaran mengurangi total margin bersih
+                    };
+
+                    setTransactions([newTx, ...transactions]);
+                    setItemName('');
+                    setQty(1);
+                    setExpenseTotal('');
+                    showFeedback('Berhasil mencatat pengeluaran kas!', 'success');
+                }
+            };
+
+            // Tambahkan Template Barang Baru ke Rak Toko milik User
+            const handleAddNewTemplate = (e) => {
+                e.preventDefault();
+                if (!tempName || !tempCost || !tempPrice) {
+                    showFeedback('Harap isi lengkap nama, modal, dan harga jual template!', 'error');
+                    return;
+                }
+                const newTemp = {
+                    name: tempName,
+                    unit: tempUnit,
+                    cost: parseInt(tempCost),
+                    price: parseInt(tempPrice)
+                };
+                setUserTemplates([...userTemplates, newTemp]);
+                setTempName('');
+                setTempCost('');
+                setTempPrice('');
+                showFeedback(`Template ${tempName} disimpan ke Rak Pintar!`, 'success');
+            };
+
+            // Hapus Template Barang agar Rak tetap bersih
+            const handleDeleteTemplate = (indexToDelete, e) => {
+                e.stopPropagation();
+                setUserTemplates(userTemplates.filter((_, idx) => idx !== indexToDelete));
+                showFeedback('Template barang berhasil dihapus dari Rak.', 'info');
+            };
+
+            // Fungsi Tap Cepat (Mengisi form instan sekali klik)
+            const handleQuickTap = (item) => {
+                setTxType('pemasukan'); // Auto set form ke mode pemasukan
+                setItemName(item.name);
+                setUnitType(item.unit || 'pcs');
+                setCost(item.cost);
+                setPrice(item.price);
+                setQty(1);
+                showFeedback(`Data ${item.name} berhasil dimuat!`, 'success');
+            };
+
+            // Update Qty Langsung Dari Baris Tabel
+            const handleUpdateTableQty = (id, change) => {
+                setTransactions(prevTransactions => 
+                    prevTransactions.map(t => {
+                        if (t.id === id) {
+                            const newQty = Math.max(1, t.qty + change);
+                            let newTotal = t.total;
+                            let newMargin = t.margin;
+                            
+                            if (t.type === 'pemasukan') {
+                                newTotal = newQty * t.price;
+                                newMargin = newQty * (t.price - t.cost);
+                            } else { // Jika pengeluaran, sesuaikan total pengeluaran proporsional jika diubah
+                                const singleCost = t.total / t.qty;
+                                newTotal = newQty * singleCost;
+                                newMargin = -newTotal;
+                            }
+                            return { ...t, qty: newQty, total: newTotal, margin: newMargin };
+                        }
+                        return t;
+                    })
+                );
+                showFeedback('Jumlah transaksi berhasil diperbarui!', 'success');
+            };
+
+            // Batalkan / Hapus Transaksi
+            const handleDelete = (id) => {
+                setTransactions(transactions.filter(t => t.id !== id));
+                showFeedback('Transaksi telah dihapus.', 'info');
+            };
+
+            // HITUNGAN SINKRON RIIL & DINAMIS (Menyesuaikan Buku Kas)
+            const currentYearMonth = date.substring(0, 7); // Mengikuti tahun-bulan dari input tanggal aktif
+
+            const getTotalsForFilter = (filterFn) => {
+                const list = transactions.filter(filterFn);
+                const omzet = list.filter(t => t.type === 'pemasukan').reduce((acc, cur) => acc + cur.total, 0);
+                const margin = list.reduce((acc, cur) => acc + cur.margin, 0);
+                return { omzet, margin };
+            };
+
+            // 1. Rekap Harian
+            const dailyData = getTotalsForFilter(t => t.date === date);
+            // 2. Rekap Bulanan
+            const monthlyData = getTotalsForFilter(t => t.date.startsWith(currentYearMonth));
+
+            // ANALISIS PELANGGAN SETIA (LOYALTY SYSTEM)
+            const getLoyalCustomers = () => {
+                const customerMap = {};
+                transactions.forEach(t => {
+                    if (t.type === 'pemasukan' && t.customer && t.customer !== 'Umum') {
+                        if (!customerMap[t.customer]) {
+                            customerMap[t.customer] = { count: 0, spend: 0 };
+                        }
+                        customerMap[t.customer].count += 1;
+                        customerMap[t.customer].spend += t.total;
+                    }
+                });
+                return Object.entries(customerMap)
+                    .map(([name, data]) => ({ name, ...data }))
+                    .sort((a, b) => b.spend - a.spend)
+                    .slice(0, 3);
+            };
+
+            const loyalCustomersList = getLoyalCustomers();
+
+            // Format Nama Bulan Indonesia
+            const getIndonesianMonth = (yearMonthStr) => {
+                if (!yearMonthStr) return '';
+                const [year, month] = yearMonthStr.split('-');
+                const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+                return `${months[parseInt(month) - 1]} ${year}`;
+            };
+
+            // Menyusun baris CSV berdasarkan data transaksi saat ini
+            const generateCsvData = () => {
+                let csvRows = [];
+                csvRows.push("Tanggal,Jenis Transaksi,Nama Pelanggan,Nama Barang/Jasa/Pengeluaran,Qty,Satuan,Total Nilai,Margin Untung Bersih");
+                
+                const sorted = [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
+                sorted.forEach(t => {
+                    const typeLabel = t.type === 'pemasukan' ? 'PEMASUKAN' : 'PENGELUARAN';
+                    csvRows.push(`"${t.date}","${typeLabel}","${t.customer.replace(/"/g, '""')}","${t.name.replace(/"/g, '""')}",${t.qty},"${t.unit}",${t.total},${t.margin}`);
+                });
+                return csvRows.join("\n");
+            };
+
+            // Membuka modal salin data kas
+            const handleExportProcess = () => {
+                if (transactions.length === 0) return;
+                const csvString = generateCsvData();
+                setGeneratedCsvText(csvString);
+                setIsExportModalOpen(true);
+            };
+
+            // Solusi salin teks andalan yang dijamin berjalan lancar di segala browser/HP
+            const copyCsvToClipboard = () => {
+                if (textareaRef.current) {
+                    textareaRef.current.focus();
+                    textareaRef.current.select();
+                    textareaRef.current.setSelectionRange(0, 99999);
+                    try {
+                        document.execCommand('copy');
+                        showFeedback('Data Kas berhasil disalin! Silakan langsung Tempel/Paste di Excel.', 'success');
+                        setIsExportModalOpen(false);
+                    } catch (err) {
+                        showFeedback('Gagal menyalin otomatis. Silakan salin manual teks di kotak.', 'error');
+                    }
+                }
+            };
+
             return (
-                <div className="p-6">
-                    {/* Isi tampilan UI aplikasi kas kamu */}
-                    <h1 className="text-2xl font-bold">Aplikasi JURAGAN</h1>
+                <div className="max-w-6xl mx-auto px-4 py-6">
+                    {/* Header Utama: Murni JURAGAN */}
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-[#1e293b] text-white p-6 rounded-2xl shadow-sm border-b-4 border-emerald-600 mb-6 gap-4">
+                        <div>
+                            <h1 className="text-3xl font-extrabold tracking-tight">JURAGAN</h1>
+                            <p className="text-emerald-400 text-sm font-medium mt-1">Sistem Pencatatan Kas & Manajemen Margin Bersih Otomatis</p>
+                        </div>
+                        <div className="flex items-center gap-2 bg-slate-800/80 px-4 py-2.5 rounded-xl border border-slate-700 w-full md:w-auto">
+                            <i data-lucide="calendar" className="w-4 h-4 text-emerald-400"></i>
+                            <span className="text-xs text-slate-400 mr-2 font-medium">Tanggal Operasional:</span>
+                            <input 
+                                type="date" 
+                                className="bg-transparent font-bold text-white text-sm focus:outline-none cursor-pointer"
+                                value={date}
+                                onChange={(e) => setDate(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Notifikasi Pop-up */}
+                    {feedback && (
+                        <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg border text-sm font-semibold animate-bounce ${
+                            feedback.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 
+                            feedback.type === 'error' ? 'bg-rose-50 border-rose-200 text-rose-800' : 'bg-blue-50 border-blue-200 text-blue-800'
+                        }`}>
+                            <i data-lucide={feedback.type === 'error' ? 'alert-circle' : 'check-circle'} className="w-4 h-4"></i>
+                            <span>{feedback.msg}</span>
+                        </div>
+                    )}
+
+                    {/* GRID DASHBOARD UTAMA */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                        
+                        {/* REKAP HARIAN */}
+                        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+                            <div>
+                                <div className="flex justify-between items-center mb-3">
+                                    <span className="text-xs font-bold text-slate-400 tracking-wider">REKAP OPERASIONAL HARIAN</span>
+                                    <span className="bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-full text-[10px] font-bold">{date}</span>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-slate-500">Omzet Kotor:</span>
+                                        <span className="font-semibold text-slate-800">Rp {(dailyData.omzet).toLocaleString('id-ID')}</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm border-t border-dashed pt-2">
+                                        <span className="text-slate-500">Untung Bersih Hari Ini:</span>
+                                        <span className={`font-bold ${dailyData.margin >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                            Rp {(dailyData.margin).toLocaleString('id-ID')}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* REKAP BULANAN */}
+                        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+                            <div>
+                                <div className="flex justify-between items-center mb-3">
+                                    <span className="text-xs font-bold text-slate-400 tracking-wider">AKUMULASI BULAN INI</span>
+                                    <span className="bg-emerald-50 text-emerald-700 px-2.5 py-0.5 rounded-full text-[10px] font-bold">{getIndonesianMonth(currentYearMonth)}</span>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-slate-500">Total Omzet:</span>
+                                        <span className="font-semibold text-slate-800">Rp {(monthlyData.omzet).toLocaleString('id-ID')}</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm border-t border-dashed pt-2">
+                                        <span className="text-slate-500">Total Margin Bersih:</span>
+                                        <span className={`font-bold text-lg ${monthlyData.margin >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                            Rp {(monthlyData.margin).toLocaleString('id-ID')}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* ANALISIS LOYALTY PELANGGAN */}
+                        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+                            <span className="text-xs font-bold text-slate-400 tracking-wider block mb-3">3 PELANGGAN SETIA TERATAS (BULAN INI)</span>
+                            {loyalCustomersList.length === 0 ? (
+                                <p className="text-xs text-slate-400 italic py-4 text-center">Belum ada data pelanggan tercatat.</p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {loyalCustomersList.map((c, i) => (
+                                        <div key={i} className="flex justify-between items-center text-xs bg-slate-50 p-2 rounded-lg border border-slate-100">
+                                            <div className="flex items-center gap-2">
+                                                <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-[10px]">{i+1}</span>
+                                                <span className="font-bold text-slate-700">{c.name}</span>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="text-slate-500 block text-[10px]">{c.count}x Belanja</span>
+                                                <span className="font-semibold text-emerald-600">Rp {c.spend.toLocaleString('id-ID')}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* AREA UTAMA (KIRI: KASIR/INPUT & RAK TEMPLATE, KANAN: TABEL LOG KAS) */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        
+                        {/* PANEL KIRI (INPUT FORM & RAK TEMPLATE) */}
+                        <div className="space-y-6 lg:col-span-1">
+                            
+                            {/* FORM KASIR INPUT */}
+                            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+                                <div className="flex gap-2 mb-4 bg-slate-100 p-1 rounded-xl">
+                                    <button 
+                                        type="button"
+                                        onClick={() => setTxType('pemasukan')}
+                                        className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${txType === 'pemasukan' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                                    >
+                                        Pemasukan Jual
+                                    </button>
+                                    <button 
+                                        type="button"
+                                        onClick={() => setTxType('pengeluaran')}
+                                        className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${txType === 'pengeluaran' ? 'bg-white text-rose-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                                    >
+                                        Pengeluaran Operasional
+                                    </button>
+                                </div>
+
+                                <form onSubmit={handleAddTransaction} className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-600 mb-1">Nama Barang / Pengeluaran</label>
+                                        <input 
+                                            type="text"
+                                            className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                            placeholder="Contoh: Kemeja Sablon, Pembelian Bahan, dll"
+                                            value={itemName}
+                                            onChange={(e) => setItemName(e.target.value)}
+                                        />
+                                    </div>
+
+                                    {txType === 'pemasukan' && (
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-600 mb-1">Nama Pelanggan (Loyalty)</label>
+                                            <input 
+                                                type="text"
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                                placeholder="Kosongkan jika Umum"
+                                                value={customerName}
+                                                onChange={(e) => setCustomerName(e.target.value)}
+                                            />
+                                        </div>
+                                    )}
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-600 mb-1">Jumlah (Qty)</label>
+                                            <input 
+                                                type="number"
+                                                min="1"
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                                value={qty}
+                                                onChange={(e) => setQty(e.target.value)}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-600 mb-1">Satuan</label>
+                                            <input 
+                                                type="text"
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                                placeholder="pcs, pack, kg"
+                                                value={unitType}
+                                                onChange={(e) => setUnitType(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {txType === 'pemasukan' ? (
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-600 mb-1">Modal / Unit (Rp)</label>
+                                                <input 
+                                                    type="number"
+                                                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                                    placeholder="0"
+                                                    value={cost}
+                                                    onChange={(e) => setCost(e.target.value)}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-600 mb-1">Harga Jual / Unit (Rp)</label>
+                                                <input 
+                                                    type="number"
+                                                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                                    placeholder="0"
+                                                    value={price}
+                                                    onChange={(e) => setPrice(e.target.value)}
+                                                />
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-600 mb-1">Total Biaya Pengeluaran (Rp)</label>
+                                            <input 
+                                                type="number"
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500"
+                                                placeholder="0"
+                                                value={expenseTotal}
+                                                onChange={(e) => setExpenseTotal(e.target.value)}
+                                            />
+                                        </div>
+                                    )}
+
+                                    <button 
+                                        type="submit"
+                                        className={`w-full py-2.5 rounded-xl text-sm font-bold text-white shadow-sm transition ${
+                                            txType === 'pemasukan' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'
+                                        }`}
+                                    >
+                                        Catat Transaksi Sekarang
+                                    </button>
+                                </form>
+                            </div>
+
+                            {/* RAK TEMPLATE BARANG PINTAR */}
+                            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+                                <div className="flex justify-between items-center mb-3">
+                                    <span className="text-xs font-bold text-slate-500 tracking-wider">RAK PINTAR TEMPLATE BARANG</span>
+                                    <button 
+                                        onClick={() => setShowAddTemplateForm(!showAddTemplateForm)}
+                                        className="text-xs text-emerald-600 hover:text-emerald-700 font-bold flex items-center gap-1"
+                                    >
+                                        <i data-lucide={showAddTemplateForm ? "minus" : "plus"} className="w-3 h-3"></i>
+                                        {showAddTemplateForm ? 'Tutup' : 'Tambah'}
+                                    </button>
+                                </div>
+
+                                {showAddTemplateForm && (
+                                    <form onSubmit={handleAddNewTemplate} className="bg-slate-50 p-3 rounded-xl border border-slate-200 mb-4 space-y-3">
+                                        <input 
+                                            type="text" placeholder="Nama produk" 
+                                            className="w-full p-2 text-xs border border-slate-200 rounded-lg focus:outline-none"
+                                            value={tempName} onChange={(e) => setTempName(e.target.value)}
+                                        />
+                                        <div className="grid grid-cols-3 gap-2">
+                                            <input 
+                                                type="number" placeholder="Modal" 
+                                                className="w-full p-2 text-xs border border-slate-200 rounded-lg focus:outline-none"
+                                                value={tempCost} onChange={(e) => setTempCost(e.target.value)}
+                                            />
+                                            <input 
+                                                type="number" placeholder="Jual" 
+                                                className="w-full p-2 text-xs border border-slate-200 rounded-lg focus:outline-none"
+                                                value={tempPrice} onChange={(e) => setTempPrice(e.target.value)}
+                                            />
+                                            <input 
+                                                type="text" placeholder="pcs" 
+                                                className="w-full p-2 text-xs border border-slate-200 rounded-lg focus:outline-none"
+                                                value={tempUnit} onChange={(e) => setTempUnit(e.target.value)}
+                                            />
+                                        </div>
+                                        <button type="submit" className="w-full bg-slate-800 text-white text-[11px] font-bold py-1.5 rounded-lg hover:bg-slate-900 transition">
+                                            Simpan ke Rak
+                                        </button>
+                                    </form>
+                                )}
+
+                                {userTemplates.length === 0 ? (
+                                    <p className="text-xs text-slate-400 italic text-center py-2">Rak template kosong. Tambahkan barang andalanmu di atas.</p>
+                                ) : (
+                                    <div className="flex flex-wrap gap-2">
+                                        {userTemplates.map((item, index) => (
+                                            <div 
+                                                key={index} 
+                                                onClick={() => handleQuickTap(item)}
+                                                className="group bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs px-3 py-1.5 rounded-xl border border-emerald-200/60 font-medium flex items-center gap-2 cursor-pointer transition shadow-2xs"
+                                            >
+                                                <span>{item.name}</span>
+                                                <button 
+                                                    onClick={(e) => handleDeleteTemplate(index, e)}
+                                                    className="text-emerald-400 hover:text-rose-600 transition"
+                                                >
+                                                    <i data-lucide="x" className="w-3 h-3"></i>
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* PANEL KANAN (TABEL LOG DATA KAS & EXPORT BUTTON) */}
+                        <div className="lg:col-span-2 space-y-4">
+                            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+                                <div className="flex justify-between items-center mb-4">
+                                    <div>
+                                        <h2 className="text-base font-bold text-slate-800">Aliran Arus Buku Kas</h2>
+                                        <p className="text-xs text-slate-400 mt-0.5">Daftar rekaman urutan transaksi harian dan operasional bisnis</p>
+                                    </div>
+                                    {transactions.length > 0 && (
+                                        <button 
+                                            onClick={handleExportProcess}
+                                            className="bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
+                                        >
+                                            <i data-lucide="file-spreadsheet" className="w-3.5 h-3.5"></i>
+                                            Salin untuk Excel
+                                        </button>
+                                    )}
+                                </div>
+
+                                {transactions.length === 0 ? (
+                                    <div className="text-center py-16 border-2 border-dashed border-slate-100 rounded-xl">
+                                        <i data-lucide="inbox" className="w-8 h-8 text-slate-300 mx-auto mb-2"></i>
+                                        <p className="text-sm font-semibold text-slate-600">Buku kas harian masih kosong</p>
+                                        <p className="text-xs text-slate-400 mt-0.5">Silakan masukkan data pemasukan atau pengeluaran di panel kasir</p>
+                                    </div>
+                                ) : (
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr className="border-b border-slate-100 text-slate-400 text-[11px] font-bold uppercase tracking-wider">
+                                                    <th className="py-3 px-2">Tanggal</th>
+                                                    <th className="py-3 px-2">Deskripsi Item</th>
+                                                    <th className="py-3 px-2">Pelanggan</th>
+                                                    <th className="py-3 px-2 text-center">Jumlah Qty</th>
+                                                    <th className="py-3 px-2 text-right">Total Nilai</th>
+                                                    <th className="py-3 px-2 text-right">Margin Bersih</th>
+                                                    <th className="py-3 px-2 text-center">Aksi</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100 text-xs">
+                                                {transactions.map((t) => (
+                                                    <tr key={t.id} className="hover:bg-slate-50/80 transition font-medium">
+                                                        <td className="py-3 px-2 text-slate-500 whitespace-nowrap">{t.date}</td>
+                                                        <td className="py-3 px-2">
+                                                            <div className="font-bold text-slate-800">{t.name}</div>
+                                                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                                                t.type === 'pemasukan' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+                                                            }`}>
+                                                                {t.type === 'pemasukan' ? 'Pemasukan' : 'Pengeluaran'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-3 px-2 text-slate-600 font-semibold">{t.customer}</td>
+                                                        <td className="py-3 px-2">
+                                                            <div className="flex items-center justify-center gap-2">
+                                                                <button 
+                                                                    onClick={() => handleUpdateTableQty(t.id, -1)}
+                                                                    className="w-5 h-5 bg-slate-100 hover:bg-slate-200 rounded flex items-center justify-center text-slate-600 transition"
+                                                                >
+                                                                    -
+                                                                </button>
+                                                                <span className="font-bold text-slate-800 min-w-[20px] text-center">{t.qty} <span className="text-[10px] text-slate-400 font-normal">{t.unit}</span></span>
+                                                                <button 
+                                                                    onClick={() => handleUpdateTableQty(t.id, 1)}
+                                                                    className="w-5 h-5 bg-slate-100 hover:bg-slate-200 rounded flex items-center justify-center text-slate-600 transition"
+                                                                >
+                                                                    +
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-3 px-2 text-right font-bold text-slate-800">Rp {t.total.toLocaleString('id-ID')}</td>
+                                                        <td className={`py-3 px-2 text-right font-bold ${t.margin >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                            {t.margin >= 0 ? '+' : ''}Rp {t.margin.toLocaleString('id-ID')}
+                                                        </td>
+                                                        <td className="py-3 px-2 text-center">
+                                                            <button 
+                                                                onClick={() => handleDelete(t.id)}
+                                                                className="text-slate-300 hover:text-rose-600 p-1 rounded transition"
+                                                                title="Hapus"
+                                                            >
+                                                                <i data-lucide="trash-2" className="w-3.5 h-3.5 mx-auto"></i>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* MODAL SALIN DATA UNTUK EXCEL / GOOGLE SHEET */}
+                    {isExportModalOpen && (
+                        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+                            <div className="bg-white rounded-2xl w-full max-w-xl p-5 shadow-xl border border-slate-100 animate-in fade-in zoom-in duration-200">
+                                <div className="flex justify-between items-center mb-3">
+                                    <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                                        <i data-lucide="clipboard-check" className="text-emerald-600 w-4 h-4"></i>
+                                        Data Kas Siap Salin (Format CSV Excel)
+                                    </h3>
+                                    <button 
+                                        onClick={() => setIsExportModalOpen(false)}
+                                        className="text-slate-400 hover:text-slate-600 transition"
+                                    >
+                                        <i data-lucide="x" className="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                                <p className="text-xs text-slate-500 mb-3">Klik tombol di bawah untuk menyalin seluruh baris data kas, lalu buka Excel/Google Sheet dan langsung gunakan fitur **Paste/Tempel**.</p>
+                                
+                                <textarea 
+                                    ref={textareaRef}
+                                    readOnly
+                                    value={generatedCsvText}
+                                    className="w-full h-44 bg-slate-50 border border-slate-200 rounded-xl p-3 font-mono text-[10px] text-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-500 mb-4"
+                                />
+
+                                <div className="flex gap-2 justify-end">
+                                    <button 
+                                        onClick={() => setIsExportModalOpen(false)}
+                                        className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 transition"
+                                    >
+                                        Batal
+                                    </button>
+                                    <button 
+                                        onClick={copyCsvToClipboard}
+                                        className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition"
+                                    >
+                                        Salin Teks Otomatis
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         }
 
-        // 3. Render Aplikasi ke DOM (Bagian ini WAJIB ada di paling bawah)
+        // Render Aplikasi ke Element DOM root
         const container = document.getElementById('root');
         const root = ReactDOM.createRoot(container);
         root.render(<App />);
+        
+        // Render ikon Lucide agar muncul sempurna
+        setTimeout(() => { lucide.createIcons(); }, 400);
     </script>
 </body>
 </html>
